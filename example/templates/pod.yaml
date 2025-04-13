@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   annotations:
     hub.jupyter.org/username: {{ .Values.unescaped_username | quote }}
+    kubetemplatespawner/connection: "true"
     kubetemplatespawner/delete: server
   labels:
     app.kubernetes.io/component: singleuser-server
