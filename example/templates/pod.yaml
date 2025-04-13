@@ -14,7 +14,7 @@ metadata:
     hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"
     hub.jupyter.org/username: "{{ .Values.escaped_username }}"
   name: jupyter-{{ .Values.escaped_username }}
-  # namespace: 
+  namespace: {{ .Values.namespace }}
 spec:
   automountServiceAccountToken: false
   containers:

@@ -68,6 +68,18 @@ class KubeTemplateSpawner(Spawner):
         help="Annotation key for the resource used for connecting to server",
     )
 
+    namespace = Unicode(config=True, help="Kubernetes namespace to spawn user pods in")
+
+    @default("namespace")
+    def _default_namespace(self):
+        """
+        Set namespace default to current namespace if running in a k8s cluster
+        """
+        p = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+        if p.exists():
+            return p.read_text()
+        return "default"
+
     @validate("template_path")
     def _validate_template_path(self, proposal):
         directory = proposal["value"]
@@ -112,7 +124,6 @@ class KubeTemplateSpawner(Spawner):
         super().__init__(**kwargs)
 
         self._manifests = []
-        self._default_vars = {}
         self._connection_manifest = None
         # Queue for Kubernetes events that are shown to the user
         # https://asyncio.readthedocs.io/en/latest/producer_consumer.html
@@ -222,6 +233,7 @@ class KubeTemplateSpawner(Spawner):
     def template_vars(self) -> YamlT:
         self.port: int
         d: dict[str, Any] = self.get_names()
+        d["namespace"] = self.namespace
         d["ip"] = self.ip
         d["port"] = self.port
         d["env"] = self.get_env()

@@ -12,7 +12,7 @@ metadata:
     hub.jupyter.org/username: "{{ .Values.escaped_username }}"
   # Use escaped_username to share a volume across all user's servers
   name: jupyter-{{ .Values.escaped_user_server }}
-  # namespace: 
+  namespace: {{ .Values.namespace }}
 spec:
   accessModes:
     - ReadWriteOnce
