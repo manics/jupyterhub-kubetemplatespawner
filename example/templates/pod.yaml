@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    hub.jupyter.org/username: {{ .Values.unescaped_username | quote }}
+    kubetemplatespawner/delete: server
+  labels:
+    app.kubernetes.io/component: singleuser-server
+    # app.kubernetes.io/instance: jupyterhub
+    app.kubernetes.io/managed-by: kubetemplatespawner
+    # app.kubernetes.io/name: jupyterhub
+    hub.jupyter.org/network-access-hub: "true"
+    hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"
+    hub.jupyter.org/username: "{{ .Values.escaped_username }}"
+  name: jupyter-{{ .Values.escaped_username }}
+  # namespace: 
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - args:
+      # - jupyterhub-singleuser
+      - jupyter-lab
+    env:
+    {{- range $k, $v := .Values.env }}
+      - name: {{ $k | quote }}
+        value: {{ $v | quote }}
+    {{- end }}
+    image: quay.io/jupyterhub/k8s-singleuser-sample:4.1.0
+    imagePullPolicy: IfNotPresent
+    name: notebook
+    ports:
+      - containerPort: 8888
+        name: notebook-port
+        protocol: TCP
+    resources:
+      requests:
+        memory: "1G"
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsUser: 1000
+    volumeMounts:
+      - mountPath: /home/jovyan
+        name: home
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: false
+  restartPolicy: OnFailure
+  securityContext:
+    fsGroup: 100
+  volumes:
+  - name: home
+    persistentVolumeClaim:
+      claimName: jupyter-{{ .Values.escaped_username }}

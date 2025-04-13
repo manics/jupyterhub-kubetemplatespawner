@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=75.8.0", "setuptools-scm>=8.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kubetemplatespawner"
+dynamic = ["version"]
+authors = [
+  {name = "Simon Li"},
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Framework :: Jupyter",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Programming Language :: Python",
+]
+dependencies = [
+  "pyyaml>=6.0.2",
+  "jupyterhub>=5.2.0",
+  "kubernetes_asyncio>=31.1.0",
+  "traitlets>=5.14.3",
+  # Only required so we can use kubespawner.slugs.{multi_slug,safe_slug}
+  "jupyterhub-kubespawner>=7.0.0",
+]
+description = "JupyterHub Kubernetes template spawner"
+license = "BSD-3-Clause"
+license-files = ["LICENSE*"]
+keywords = [
+  "jupyter",
+  "jupyterhub",
+]
+readme = "README.md"
+requires-python = ">= 3.12"
+
+[project.entry-points."jupyterhub.spawners"]
+kubetemplate = "kubetemplatespawner.spawner:KubeTemplateSpawner"
+
+[project.optional-dependencies]
+test = [
+  "pre_commit>=4.1.0",
+  "pytest>=8.3.4",
+  "pytest-asyncio>=0.25.3",
+]
+
+[project.urls]
+Repository = "https://github.com/manics/kubetemplatespawner.git"
+Issues = "https://github.com/manics/kubetemplatespawner/issues"
+
+[tool.setuptools_scm]
+# presence enables setuptools-scm

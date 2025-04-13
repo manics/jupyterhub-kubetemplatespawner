@@ -1,0 +1,27 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.11.5
+    hooks:
+      # Linter.
+      - id: ruff
+        args:
+          # Sort imports
+          - --extend-select=I
+          - --fix
+          - --show-fixes
+      # Formatter.
+      - id: ruff-format
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.5.3
+    hooks:
+      - id: prettier
+        exclude: ^example/
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-pyyaml
+        files: ^kubetemplatespawner
