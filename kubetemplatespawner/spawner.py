@@ -334,14 +334,21 @@ class KubeTemplateSpawner(Spawner):
         self._reset()
 
     async def delete_forever(self):
-        # TODO: Currently this only deletes user resources for the default server
-        # and not e.g. PVCs for named servers. Need to delete all resources with
-        # hub.jupyter.org/username=escaped_username
-        async with ApiClient() as api:
-            async with DynamicClient(api) as dyn_client:
-                await self.delete_all_manifests(
-                    dyn_client, {self.deletion_annotation_key: "user"}
-                )
+        # This is called when deleting a user, or when deleting a named server.
+        # If this is a named server we should not delete user resources.
+
+        # TODO: This doesn't yet delete named server resources with label
+        # deletion_annotation_key=user
+        # that don't match a default server manifest
+        if self.name:
+            # server resources should already be deleted in stop()
+            self.log.warn(f"Ignoring delete_forever of named server {self.name}")
+        else:
+            async with ApiClient() as api:
+                async with DynamicClient(api) as dyn_client:
+                    await self.delete_all_manifests(
+                        dyn_client, {self.deletion_annotation_key: "user"}
+                    )
         self._reset()
 
     async def poll(self) -> None | int:
