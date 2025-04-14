@@ -197,7 +197,8 @@ class KubeTemplateSpawner(Spawner):
 
     async def deploy_all_manifests(self, dyn_client: DynamicClient) -> None:
         """Deploy all manifests concurrently"""
-        summaries = [manifest_summary(m) for m in await self.manifests()]
+        manifests = await self.manifests()
+        summaries = [manifest_summary(m) for m in manifests]
         self.log.info(f"Deploying {len(summaries)} manifests...")
         events = asyncio.create_task(
             stream_events(self.events, summaries, self.k8s_timeout)
@@ -240,16 +241,18 @@ class KubeTemplateSpawner(Spawner):
         d["port"] = self.port
         d["env"] = self.get_env()
         if callable(self.extra_vars):
-            d["vars"] = self.extra_vars(self)
+            d.update(self.extra_vars(self))
         else:
-            d["vars"] = self.extra_vars
+            d.update(self.extra_vars)
         return d
 
     def get_connection(self, obj: ResourceInstance) -> tuple[str, int]:
         if obj.kind == "Pod":
             ip = obj.status.podIP
         elif obj.kind == "Service":
-            ip = f"{obj.name}.{obj.namespace}"
+            if not obj.metadata.name or not obj.metadata.namespace:
+                raise RuntimeError(f"{obj.metadata.name=} {obj.metadata.namespace=}")
+            ip = f"{obj.metadata.name}.{obj.metadata.namespace}"
         else:
             raise NotImplementedError(f"Unable to connect to {obj.kind}")
         return ip, self.port

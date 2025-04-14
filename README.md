@@ -34,7 +34,10 @@ Runtime variables:
 - `ip`: IP the server should listen on
 - `port` Port the server should listen on
 - `env`: Dictionary of `key: value` environment variables
-- `vars`: Dictionary of additional variables from `KubeTemplateSpawner.extra_vars`
+
+Additional variables:
+
+- Variables from `KubeTemplateSpawner.extra_vars` are included, and can override the above
 
 ## Annotations
 

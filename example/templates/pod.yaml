@@ -3,13 +3,15 @@ kind: Pod
 metadata:
   annotations:
     hub.jupyter.org/username: {{ .Values.unescaped_username | quote }}
+  {{- if not .Values.serviceEnabled }}
     kubetemplatespawner/connection: "true"
+  {{- end }}
     kubetemplatespawner/delete: server
   labels:
-    app.kubernetes.io/component: singleuser-server
     # app.kubernetes.io/instance: jupyterhub
-    app.kubernetes.io/managed-by: kubetemplatespawner
     # app.kubernetes.io/name: jupyterhub
+    app.kubernetes.io/component: singleuser-server
+    app.kubernetes.io/managed-by: kubetemplatespawner
     hub.jupyter.org/network-access-hub: "true"
     hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"
     hub.jupyter.org/username: "{{ .Values.escaped_username }}"
@@ -29,7 +31,7 @@ spec:
     imagePullPolicy: IfNotPresent
     name: notebook
     ports:
-      - containerPort: 8888
+      - containerPort: {{ .Values.port }}
         name: notebook-port
         protocol: TCP
     resources:

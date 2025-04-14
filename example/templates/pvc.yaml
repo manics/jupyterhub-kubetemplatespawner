@@ -5,10 +5,10 @@ metadata:
     hub.jupyter.org/username: {{ .Values.unescaped_username | quote }}
     kubetemplatespawner/delete: user
   labels:
-    app.kubernetes.io/component: singleuser-storage
     # app.kubernetes.io/instance: jupyterhub
-    app.kubernetes.io/managed-by: kubetemplatespawner
     # app.kubernetes.io/name: jupyterhub
+    app.kubernetes.io/component: singleuser-storage
+    app.kubernetes.io/managed-by: kubetemplatespawner
     hub.jupyter.org/username: "{{ .Values.escaped_username }}"
   # Use escaped_username to share a volume across all user's servers
   name: jupyter-{{ .Values.escaped_user_server }}
