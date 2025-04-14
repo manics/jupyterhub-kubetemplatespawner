@@ -51,4 +51,4 @@ spec:
   volumes:
   - name: home
     persistentVolumeClaim:
-      claimName: jupyter-{{ .Values.escaped_username }}
+      claimName: jupyter-{{ .Values.escaped_user_server }}

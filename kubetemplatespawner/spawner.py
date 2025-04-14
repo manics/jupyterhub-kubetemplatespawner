@@ -334,6 +334,9 @@ class KubeTemplateSpawner(Spawner):
         self._reset()
 
     async def delete_forever(self):
+        # TODO: Currently this only deletes user resources for the default server
+        # and not e.g. PVCs for named servers. Need to delete all resources with
+        # hub.jupyter.org/username=escaped_username
         async with ApiClient() as api:
             async with DynamicClient(api) as dyn_client:
                 await self.delete_all_manifests(
