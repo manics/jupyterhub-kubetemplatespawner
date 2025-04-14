@@ -47,5 +47,8 @@ test = [
 Repository = "https://github.com/manics/kubetemplatespawner.git"
 Issues = "https://github.com/manics/kubetemplatespawner/issues"
 
+[tool.setuptools.packages.find]
+include = ["kubetemplatespawner"]
+
 [tool.setuptools_scm]
 # presence enables setuptools-scm
