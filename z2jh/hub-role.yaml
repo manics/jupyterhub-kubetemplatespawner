@@ -1,0 +1,43 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: kubetemplatespawner
+    app.kubernetes.io/name: jupyterhub
+  name: kubetemplatespawner
+  # namespace:
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - persistentvolumeclaims
+      - secrets
+      - services
+    verbs:
+      # role/hub:
+      # - get
+      # - watch
+      # - list
+      # - create
+      # - delete
+      - patch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: kubetemplatespawner
+    app.kubernetes.io/name: jupyterhub
+  name: kubetemplatespawner
+  # namespace:
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubetemplatespawner
+subjects:
+  - kind: ServiceAccount
+    # Change this to the name of the hub service account:
+    name: hub
+    # namespace:

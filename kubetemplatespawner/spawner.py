@@ -150,7 +150,9 @@ class KubeTemplateSpawner(Spawner):
         return [doc for doc in docs if doc]
 
     async def manifests(self) -> list[YamlT]:
-        if not self._manifests:
+        if self._manifests:
+            self.log.info("Using cached manifests")
+        else:
             vars = self.template_vars()
             self._manifests = await self._render_manifests(self.template_path, vars)
         return self._manifests
@@ -199,7 +201,7 @@ class KubeTemplateSpawner(Spawner):
         """Deploy all manifests concurrently"""
         manifests = await self.manifests()
         summaries = [manifest_summary(m) for m in manifests]
-        self.log.info(f"Deploying {len(summaries)} manifests...")
+        self.log.info(f"Deploying manifests {summaries}")
         events = asyncio.create_task(
             stream_events(self.events, summaries, self.k8s_timeout)
         )
@@ -210,24 +212,35 @@ class KubeTemplateSpawner(Spawner):
                     tg.create_task(
                         deploy_manifest(dyn_client, manifest, self.k8s_timeout)
                     )
+        except ExceptionGroup:
+            self.log.exception("Deploy failed")
+            raise
         finally:
             events.cancel()
+
         try:
             await events
         except asyncio.CancelledError:
-            self.log.info(f"Cancelled: events({' '.join(str(s) for s in summaries)})")
+            self.log.info(f"Cancelled: events({summaries})")
 
     async def delete_all_manifests(
         self, dyn_client: DynamicClient, annotations: dict[str, str]
     ) -> None:
         manifests = await self.manifests()
-        self.log.info(f"Deleting {len(manifests)} manifests")
+        summaries = [manifest_summary(m) for m in manifests]
+        self.log.info(f"Deleting manifests {summaries}")
 
-        async with asyncio.TaskGroup() as tg:
-            for manifest in manifests:
-                tg.create_task(
-                    delete_manifest(dyn_client, manifest, annotations, self.k8s_timeout)
-                )
+        try:
+            async with asyncio.TaskGroup() as tg:
+                for manifest in manifests:
+                    tg.create_task(
+                        delete_manifest(
+                            dyn_client, manifest, annotations, self.k8s_timeout
+                        )
+                    )
+        except ExceptionGroup:
+            self.log.exception("Delete failed")
+            raise
 
     def template_vars(self) -> dict[str, YamlT]:
         self.port: int

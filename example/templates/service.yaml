@@ -13,7 +13,7 @@ metadata:
     app.kubernetes.io/managed-by: kubetemplatespawner
     hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"
     hub.jupyter.org/username: "{{ .Values.escaped_username }}"
-  name: jupyter-{{ .Values.escaped_username }}
+  name: jupyter-{{ .Values.escaped_user_server }}
   namespace: {{ .Values.namespace }}
 spec:
   type: ClusterIP
