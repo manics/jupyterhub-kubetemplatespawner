@@ -273,7 +273,7 @@ class KubeTemplateSpawner(Spawner):
                         )
                     self._connection_manifest = manifest
 
-        m = manifest_summary(manifest)
+        m = manifest_summary(self._connection_manifest)
         obj = await get_resource(dyn_client, m.api_version, m.kind, m.name, m.namespace)
         return obj
 
