@@ -205,12 +205,11 @@ class KubeTemplateSpawner(Spawner):
         )
 
         try:
-            await asyncio.gather(
-                *[
-                    deploy_manifest(dyn_client, manifest, self.k8s_timeout)
-                    for manifest in await self.manifests()
-                ]
-            )
+            async with asyncio.TaskGroup() as tg:
+                for manifest in manifests:
+                    tg.create_task(
+                        deploy_manifest(dyn_client, manifest, self.k8s_timeout)
+                    )
         finally:
             events.cancel()
         try:
@@ -224,14 +223,11 @@ class KubeTemplateSpawner(Spawner):
         manifests = await self.manifests()
         self.log.info(f"Deleting {len(manifests)} manifests")
 
-        await asyncio.gather(
-            *(
-                delete_manifest(
-                    dyn_client, manifest, annotations, timeout=self.k8s_timeout
+        async with asyncio.TaskGroup() as tg:
+            for manifest in manifests:
+                tg.create_task(
+                    delete_manifest(dyn_client, manifest, annotations, self.k8s_timeout)
                 )
-                for manifest in manifests
-            )
-        )
 
     def template_vars(self) -> dict[str, YamlT]:
         self.port: int
