@@ -32,9 +32,8 @@ jobs:
       # Keep running so we can see if other tests pass
       fail-fast: false
       matrix:
-        pytestmark:
-          - not docker
-          - not podman
+        test:
+          - a
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

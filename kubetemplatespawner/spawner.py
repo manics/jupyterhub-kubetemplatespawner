@@ -57,13 +57,13 @@ class KubeTemplateSpawner(Spawner):
     )
 
     deletion_annotation_key = Unicode(
-        default="kubetemplatespawner/delete",
+        "kubetemplatespawner/delete",
         config=True,
         help="Annotation key for the delete policy",
     )
 
     connection_annotation_key = Unicode(
-        default="kubetemplatespawner/connection",
+        "kubetemplatespawner/connection",
         config=True,
         help="Annotation key for the resource used for connecting to server",
     )
@@ -91,7 +91,7 @@ class KubeTemplateSpawner(Spawner):
 
     extra_vars = Union(
         [Dict(), Callable()],
-        default={},
+        default_value={},
         allow_none=True,
         config=True,
         help=(
@@ -100,7 +100,7 @@ class KubeTemplateSpawner(Spawner):
         ),
     )
 
-    k8s_timeout = Int(default=180, config=True, help="Kubernetes API timeout")
+    k8s_timeout = Int(180, config=True, help="Kubernetes API timeout")
 
     # Override Spawner ip and port defaults
     @default("ip")
@@ -201,7 +201,9 @@ class KubeTemplateSpawner(Spawner):
         """Deploy all manifests concurrently"""
         summaries = [manifest_summary(m) for m in await self.manifests()]
         self.log.info(f"Deploying {len(summaries)} manifests...")
-        events = asyncio.create_task(stream_events(self.events, summaries))
+        events = asyncio.create_task(
+            stream_events(self.events, summaries, self.k8s_timeout)
+        )
 
         try:
             await asyncio.gather(
@@ -225,7 +227,9 @@ class KubeTemplateSpawner(Spawner):
 
         await asyncio.gather(
             *(
-                delete_manifest(dyn_client, manifest, annotations)
+                delete_manifest(
+                    dyn_client, manifest, annotations, timeout=self.k8s_timeout
+                )
                 for manifest in manifests
             )
         )

@@ -19,8 +19,7 @@ spec:
   automountServiceAccountToken: false
   containers:
   - args:
-      # - jupyterhub-singleuser
-      - jupyter-lab
+      - jupyterhub-singleuser
     env:
     {{- range $k, $v := .Values.env }}
       - name: {{ $k | quote }}

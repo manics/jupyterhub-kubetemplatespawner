@@ -105,7 +105,7 @@ async def k8s_resource(dyn_client: DynamicClient, api_version: str, kind: str) -
 
 
 async def wait_for_ready(
-    dyn_client: DynamicClient, obj: ResourceInstance, timeout=180
+    dyn_client: DynamicClient, obj: ResourceInstance, timeout: int
 ) -> None:
     api_version = obj.apiVersion
     kind = obj.kind
@@ -134,7 +134,7 @@ async def wait_for_ready(
 
 # kind, name, namespace
 async def stream_events(
-    events: asyncio.Queue | None, objects: list[ManifestSummary]
+    events: asyncio.Queue | None, objects: list[ManifestSummary], timeout: int
 ) -> None:
     namespaces = set(obj.namespace for obj in objects)
     if len(namespaces) > 1:
@@ -146,7 +146,7 @@ async def stream_events(
 
     try:
         async for event in w.stream(
-            v1.list_namespaced_event, namespace=namespace, timeout_seconds=180
+            v1.list_namespaced_event, namespace=namespace, timeout_seconds=timeout
         ):
             involved = event["object"].involved_object
             if (involved.kind, involved.name) in obj_match:
@@ -188,8 +188,7 @@ async def delete_manifest(
     dyn_client: DynamicClient,
     manifest: YamlT,
     annotations: dict[str, str],
-    wait=True,
-    timeout=180,
+    timeout: int,
 ) -> None:
     s = manifest_summary(manifest)
 
@@ -208,7 +207,7 @@ async def delete_manifest(
         log.info(f"Deleting {s.kind}/{s.name} ns={s.namespace}")
         await resource.delete(name=s.name, namespace=s.namespace)
 
-        if wait:
+        if timeout:
             for _ in range(timeout):
                 obj = await resource.get(name=s.name, namespace=s.namespace)
                 if not_found(obj):
