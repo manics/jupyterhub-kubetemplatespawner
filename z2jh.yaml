@@ -1,0 +1,40 @@
+# helm upgrade --namespace dev --install jupyterhub --repo=https://hub.jupyter.org/helm-chart/ --version=4.1.0 jupyterhub -f z2jh.yaml --wait
+
+# After deploying Z2JH you must manually edit the hub role (`kubectl edit role/hub`)
+# to add `patch` to
+# https://github.com/jupyterhub/zero-to-jupyterhub-k8s/blob/4.1.0/jupyterhub/templates/hub/rbac.yaml#L11
+
+hub:
+  image:
+    name: ghcr.io/manics/jupyterhub-kubetemplatespawner
+    tag: main
+    pullPolicy: Always
+
+  config:
+    JupyterHub:
+      spawner_class: kubetemplate
+    KubeTemplateSpawner:
+      template_path: /src/kubetemplatespawner/example/
+
+singleuser:
+  storage:
+    # Everything is done in kubetemplatespawner
+    type: none
+
+proxy:
+  service:
+    type: ClusterIP
+
+ingress:
+  enabled: true
+  hosts:
+    - example.127.0.0.1.nip.io
+
+scheduling:
+  userScheduler:
+    enabled: false
+  userPlaceholder:
+    enabled: false
+
+debug:
+  enabled: true
