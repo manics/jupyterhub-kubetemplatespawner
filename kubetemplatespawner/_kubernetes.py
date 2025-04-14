@@ -85,9 +85,11 @@ def object_is_ready(obj: ResourceInstance) -> bool:
             if c.get("type") == "Available" and c.get("status") == "True":
                 return True
         return False
+    if kind == "PersistentVolumeClaim":
+        return status.get("phase") == "Bound"
     if kind == "Service":
         return bool(obj.spec.clusterIP)
-    if kind in ("ConfigMap", "PersistentVolumeClaim", "Secret"):
+    if kind in ("ConfigMap", "Secret"):
         return True
 
     # else if object exists assume it's ready

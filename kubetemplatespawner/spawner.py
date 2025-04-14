@@ -50,10 +50,7 @@ class KubeTemplateSpawner(Spawner):
     template_path = Unicode(
         allow_none=False,
         config=True,
-        help=(
-            "Directory containing Kubernetes manifest.yaml templates. "
-            "Only *.yaml files are processed, other extensions are ignored."
-        ),
+        help="Directory containing a Helm chart for the singleuser server.",
     )
 
     deletion_annotation_key = Unicode(
@@ -123,20 +120,21 @@ class KubeTemplateSpawner(Spawner):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._manifests = []
-        self._connection_manifest = None
         # Queue for Kubernetes events that are shown to the user
         # https://asyncio.readthedocs.io/en/latest/producer_consumer.html
         self.events = asyncio.Queue()
 
+        self._reset()
         load_config()
 
-    async def _render_manifests(self, path: str, vars: YamlT) -> list[YamlT]:
-        vars = self.template_vars()
+    def _reset(self) -> None:
+        self._manifests: list[dict[str, YamlT]] = []
+        self._connection_manifest: dict[str, YamlT] | None = None
 
+    async def _render_manifests(self, path: str, vars: dict[str, YamlT]) -> list[YamlT]:
         with NamedTemporaryFile(suffix=".yaml", mode="w") as values:
+            self.log.debug(f"Rendering {path} with {vars}")
             yaml.dump(vars, values)
-            self.log.debug(f"values.yaml:\n{yaml.dump(vars)}")
             cmd = ["helm", "template", path, "-f", values.name]
             self.log.info(f"Running command {cmd}")
             helm = await asyncio.create_subprocess_exec(
@@ -151,7 +149,7 @@ class KubeTemplateSpawner(Spawner):
 
         return [doc for doc in docs if doc]
 
-    async def manifests(self) -> list[Any]:
+    async def manifests(self) -> list[YamlT]:
         if not self._manifests:
             vars = self.template_vars()
             self._manifests = await self._render_manifests(self.template_path, vars)
@@ -234,7 +232,7 @@ class KubeTemplateSpawner(Spawner):
             )
         )
 
-    def template_vars(self) -> YamlT:
+    def template_vars(self) -> dict[str, YamlT]:
         self.port: int
         d: dict[str, Any] = self.get_names()
         d["namespace"] = self.namespace
@@ -279,16 +277,18 @@ class KubeTemplateSpawner(Spawner):
 
     # JupyterHub Spawner
 
+    @default("env_keep")
     def _env_keep_default(self) -> list:
         """Don't inherit any env from the parent process"""
         return []
 
     def load_state(self, state: dict) -> None:
         super().load_state(state)
-        self._manifests = state.get("manifests")
+        # TODO: Assert type of state.get("manifests")
+        self._manifests = state.get("manifests")  # type: ignore[assignment]
         self._connection_manifest = state.get("connection_manifest")
 
-    def get_state(self) -> YamlT:
+    def get_state(self) -> Any:
         state = super().get_state()
         if self._manifests:
             state["manifests"] = self._manifests
@@ -301,9 +301,6 @@ class KubeTemplateSpawner(Spawner):
         if not self.port:
             self.port = 8888
 
-        vars = self.template_vars()
-        self.log.debug(f"template_vars: {vars}")
-
         async with ApiClient() as api:
             async with DynamicClient(api) as dyn_client:
                 await self.deploy_all_manifests(dyn_client)
@@ -315,14 +312,14 @@ class KubeTemplateSpawner(Spawner):
         return ip, port
 
     async def stop(self, now=False) -> None:
-        # TODO or not bother?
-        #   now=False (default), shutdown the server gracefully
-        #   now=True, terminate the server immediately.
+        # now=False: shutdown the server gracefully
+        # now=True: terminate the server immediately (not implemented)
         async with ApiClient() as api:
             async with DynamicClient(api) as dyn_client:
                 await self.delete_all_manifests(
                     dyn_client, {self.deletion_annotation_key: "server"}
                 )
+        self._reset()
 
     async def delete_forever(self):
         async with ApiClient() as api:
@@ -330,6 +327,7 @@ class KubeTemplateSpawner(Spawner):
                 await self.delete_all_manifests(
                     dyn_client, {self.deletion_annotation_key: "user"}
                 )
+        self._reset()
 
     async def poll(self) -> None | int:
         # None: single-user process is running.
