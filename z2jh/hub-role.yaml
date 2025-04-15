@@ -15,7 +15,7 @@ rules:
       - secrets
       - services
     verbs:
-      # role/hub:
+      # Provided by role/hub:
       # - get
       # - watch
       # - list

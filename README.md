@@ -53,4 +53,4 @@ Deletion `kubetemplatespawner/delete`:
 
 ## Example
 
-See [`z2jh.yaml`](z2jh.yaml)
+https://github.com/manics/jupyterhub-kubetemplatespawner/tree/main/z2jh
