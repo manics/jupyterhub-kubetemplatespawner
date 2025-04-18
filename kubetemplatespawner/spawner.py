@@ -124,12 +124,9 @@ class KubeTemplateSpawner(Spawner):
         # https://asyncio.readthedocs.io/en/latest/producer_consumer.html
         self.events = asyncio.Queue()
 
-        self._reset()
-        load_config()
-
-    def _reset(self) -> None:
         self._manifests: list[dict[str, YamlT]] = []
         self._connection_manifest: dict[str, YamlT] | None = None
+        load_config()
 
     async def _render_manifests(self, path: str, vars: dict[str, YamlT]) -> list[YamlT]:
         with NamedTemporaryFile(suffix=".yaml", mode="w") as values:
@@ -308,7 +305,11 @@ class KubeTemplateSpawner(Spawner):
             state["connection_manifest"] = self._connection_manifest
         return state
 
-    async def start(self) -> tuple[str, int]:
+    def clear_state(self) -> None:
+        self._manifests = []
+        self._connection_manifest = None
+
+    async def start(self) -> str:
         # self.port: int
         if not self.port:
             self.port = 8888
@@ -321,7 +322,10 @@ class KubeTemplateSpawner(Spawner):
 
         self.log.info(f"Started server on {ip}:{port}")
         self.events.put_nowait(None)
-        return ip, port
+        proto = "http"
+        if ":" in ip:
+            ip = f"[{ip}]"
+        return f"{proto}://{ip}:{port}"
 
     async def stop(self, now=False) -> None:
         # now=False: shutdown the server gracefully
@@ -331,7 +335,6 @@ class KubeTemplateSpawner(Spawner):
                 await self.delete_all_manifests(
                     dyn_client, {self.deletion_annotation_key: "server"}
                 )
-        self._reset()
 
     async def delete_forever(self):
         # This is called when deleting a user, or when deleting a named server.
@@ -349,7 +352,6 @@ class KubeTemplateSpawner(Spawner):
                     await self.delete_all_manifests(
                         dyn_client, {self.deletion_annotation_key: "user"}
                     )
-        self._reset()
 
     async def poll(self) -> None | int:
         # None: single-user process is running.
