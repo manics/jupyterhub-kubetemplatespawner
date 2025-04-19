@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app.kubernetes.io/instance: jupyterhub
+    app.kubernetes.io/name: jupyterhub
+  name: jupyterhub
+spec:
+  containers:
+    - args:
+        - jupyterhub
+        - -f
+        - /etc/jupyterhub/jupyterhub_config.py
+      env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+      image: quay.io/jupyterhub/jupyterhub:5.3.0
+      # image: quay.io/jupyterhub/jupyterhub:latest
+      imagePullPolicy: IfNotPresent
+      name: hub
+      ports:
+        - containerPort: 8081
+          name: api
+          protocol: TCP
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512M
+        requests:
+          cpu: 100m
+          memory: 256M
+      volumeMounts:
+        - name: config
+          mountPath: /etc/jupyterhub/jupyterhub_config.py
+          subPath: jupyterhub_config.py
+  readinessProbe:
+    tcpSocket:
+      port: 8081
+      periodSeconds: 1
+  volumes:
+    - name: config
+      configMap:
+        name: jupyterhub-config
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: jupyterhub
+    app.kubernetes.io/name: jupyterhub
+  name: jupyterhub-config
+data:
+  jupyterhub_config.py: |
+    import socket
+    c.JupyterHub.hub_ip = "0.0.0.0"
+    c.JupyterHub.hub_connect_ip = socket.gethostname()
+    c.JupyterHub.log_level = "DEBUG"

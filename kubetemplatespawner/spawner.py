@@ -1,6 +1,5 @@
 import asyncio
 import re
-import string
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -36,6 +35,9 @@ from ._kubernetes import (
     manifest_summary,
     stream_events,
 )
+
+# alphanumeric chars, space, some punctuation
+SERVER_NAME_PATTERN = r"^[\w \.\-\+_]*$"
 
 
 class KubeTemplateException(Exception):
@@ -109,12 +111,13 @@ class KubeTemplateSpawner(Spawner):
         return 8888
 
     # Server name is provided by the user, add some sanitisation
-    @validate("name")
-    def _validate_name(self, proposal):
-        # alphanumeric chars, space, punctuation, space
-        pattern = r"^[\w " + re.escape(string.punctuation) + r"]*$"
-        if not re.match(pattern, proposal["value"]):
-            raise TraitError("Invalid server name")
+    @validate("orm_spawner")
+    def _validate_orm_spawner(self, proposal):
+        servername = proposal["value"].name
+        if not re.match(SERVER_NAME_PATTERN, servername):
+            raise TraitError(
+                f"Invalid server name {servername}, must match {SERVER_NAME_PATTERN}"
+            )
         return proposal["value"]
 
     def __init__(self, **kwargs):
@@ -310,7 +313,6 @@ class KubeTemplateSpawner(Spawner):
         self._connection_manifest = None
 
     async def start(self) -> str:
-        # self.port: int
         if not self.port:
             self.port = 8888
 
@@ -318,6 +320,8 @@ class KubeTemplateSpawner(Spawner):
             async with DynamicClient(api) as dyn_client:
                 await self.deploy_all_manifests(dyn_client)
                 connection_obj = await self._get_connection_object(dyn_client)
+                if not connection_obj:
+                    raise KubeTemplateException("Failed to get connection object")
                 ip, port = self.get_connection(connection_obj)
 
         self.log.info(f"Started server on {ip}:{port}")
@@ -365,7 +369,9 @@ class KubeTemplateSpawner(Spawner):
         async with ApiClient() as api:
             async with DynamicClient(api) as dyn_client:
                 try:
-                    await self._get_connection_object(dyn_client)
+                    obj = await self._get_connection_object(dyn_client)
+                    if not obj:
+                        return 0
                     return None
                 except RuntimeError:
                     self.log.exception("Failed to get server")

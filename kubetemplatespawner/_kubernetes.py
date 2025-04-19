@@ -226,9 +226,11 @@ async def delete_manifest(
 
 async def get_resource(
     dyn_client, api_version, kind, name, namespace="default"
-) -> ResourceInstance:
+) -> ResourceInstance | None:
     resource = await k8s_resource(dyn_client, api_version, kind)
     obj = await resource.get(name=name, namespace=namespace)
     if obj.kind == "Status":
+        if obj.code == 404:
+            return None
         raise RuntimeError(f"Unexpected status: {obj}")
     return obj

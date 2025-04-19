@@ -52,3 +52,6 @@ include = ["kubetemplatespawner"]
 
 [tool.setuptools_scm]
 # presence enables setuptools-scm
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "module"

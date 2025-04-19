@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    hub.jupyter.org/username: "user-1@\U0001F427"
+    kubetemplatespawner/delete: user
+  labels:
+    app.kubernetes.io/component: singleuser-storage
+    app.kubernetes.io/managed-by: kubetemplatespawner
+    hub.jupyter.org/servername: ""
+    hub.jupyter.org/username: user-1---751ab4e2
+  name: jupyter-user-1---751ab4e2
+  namespace: dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
