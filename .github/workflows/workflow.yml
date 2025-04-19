@@ -28,10 +28,13 @@ jobs:
 
   test:
     name: Test
-    # strategy:
-    #   # Keep running so we can see if other tests pass
-    #   fail-fast: false
-    #   matrix:
+    strategy:
+      # Keep running so we can see if other tests pass
+      fail-fast: false
+      matrix:
+        k3s:
+          - v1.32
+
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +46,13 @@ jobs:
           cache-dependency-path: "*-requirements.txt"
 
       - uses: actions/setup-node@v4
+
+      - uses: jupyterhub/action-k3s-helm@v4
+        with:
+          k3s-channel: ${{ matrix.k3s }}
+          metrics-enabled: false
+          traefik-enabled: false
+          docker-enabled: false
 
       - name: Install dependencies
         run: |
