@@ -45,14 +45,14 @@ async def test_validate_name_invalid():
         _ = mock_spawner(servername="🦆")
 
 
-async def test_template_vars():
+async def test_template_namespace():
     k = mock_spawner(
         "user-1@🐧",
         "- +",
         extra_vars=lambda self: {"UID": self.user.id},
         namespace="dev",
     )
-    vars = k.template_vars()
+    vars = k.template_namespace()
     assert vars == {
         "UID": 12,
         "env": {"TEST": "Test\nKubeTemplateSpawner"},
@@ -65,6 +65,8 @@ async def test_template_vars():
         "unescaped_servername": "- +",
         "unescaped_username": "user-1@🐧",
         "userid": 12,
+        # From parent
+        "username": "user-1@🐧",
     }
 
 

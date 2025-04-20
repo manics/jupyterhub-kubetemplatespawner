@@ -48,19 +48,19 @@ async def hub_pod(k8s_client, k8s_namespace):
         yaml_file=str(ROOT_DIR / "tests" / "resources" / "jupyterhub.yaml"),
         namespace=k8s_namespace,
     )
-    podname = "jupyterhub"
+    pod_name = "jupyterhub"
     config_name = "jupyterhub-config"
 
     v1 = client.CoreV1Api(k8s_client)
     conditions = {}
     for i in range(int(90)):
-        pod = await v1.read_namespaced_pod(namespace=k8s_namespace, name=podname)
+        pod = await v1.read_namespaced_pod(namespace=k8s_namespace, name=pod_name)
         for condition in pod.status.conditions or []:
             conditions[condition.type] = condition.status
 
         if conditions.get("Ready") != "True":
             print(
-                f"Waiting for pod {k8s_namespace}/{podname}; current status: {pod.status.phase}; {conditions}"
+                f"Waiting for pod {k8s_namespace}/{pod_name}; current status: {pod.status.phase}; {conditions}"
             )
             await asyncio.sleep(1)
         else:
@@ -68,12 +68,18 @@ async def hub_pod(k8s_client, k8s_namespace):
 
     if conditions.get("Ready") != "True":
         raise TimeoutError(
-            f"pod {k8s_namespace}/{podname} failed to start: {pod.status}"
+            f"pod {k8s_namespace}/{pod_name} failed to start: {pod.status}"
         )
     yield pod
 
-    await v1.delete_namespaced_pod(podname, k8s_namespace)
-    await v1.delete_namespaced_config_map(config_name, k8s_namespace)
+    try:
+        await v1.delete_namespaced_pod(pod_name, k8s_namespace)
+    except Exception as e:
+        print(f"Failed to delete pod/{pod_name}: {e}")
+    try:
+        await v1.delete_namespaced_config_map(config_name, k8s_namespace)
+    except Exception as e:
+        print(f"Failed to delete cm/{config_name}: {e}")
 
 
 @pytest_asyncio.fixture(scope="module")
@@ -87,14 +93,8 @@ async def hub(hub_pod):
 
 @pytest.fixture
 def config(k8s_namespace):
-    """Return a traitlets Config object
-
-    The base configuration for testing.
-    Use when constructing Spawners for tests
-    """
     cfg = Config()
     cfg.KubeTemplateSpawner.namespace = k8s_namespace
-    cfg.KubeTemplateSpawner.cmd = ["jupyterhub-singleuser"]
     cfg.KubeTemplateSpawner.start_timeout = 180
     # prevent spawners from exiting early due to missing env
     cfg.KubeTemplateSpawner.environment = {
@@ -175,3 +175,7 @@ async def test_spawner(k8s_client, k8s_namespace, config, hub):
     # verify exit status
     status = await spawner.poll()
     assert status == 0
+
+    # check state has been cleared
+    assert not spawner._manifests
+    assert not spawner._connection_manifest

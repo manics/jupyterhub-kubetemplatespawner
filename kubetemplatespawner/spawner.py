@@ -35,6 +35,7 @@ from ._kubernetes import (
     manifest_summary,
     stream_events,
 )
+from ._version import __version__
 
 # alphanumeric chars, space, some punctuation
 SERVER_NAME_PATTERN = r"^[\w \.\-\+_]*$"
@@ -153,7 +154,7 @@ class KubeTemplateSpawner(Spawner):
         if self._manifests:
             self.log.info("Using cached manifests")
         else:
-            vars = self.template_vars()
+            vars = self.template_namespace()
             self._manifests = await self._render_manifests(self.template_path, vars)
         return self._manifests
 
@@ -242,11 +243,12 @@ class KubeTemplateSpawner(Spawner):
             self.log.exception("Delete failed")
             raise
 
-    def template_vars(self) -> dict[str, YamlT]:
-        self.port: int
-        d: dict[str, Any] = self.get_names()
+    def template_namespace(self) -> dict[str, YamlT]:
+        d = super().template_namespace()
+        d.update(self.get_names())
         d["namespace"] = self.namespace
         d["ip"] = self.ip
+        self.port: int
         d["port"] = self.port
         d["env"] = self.get_env()
         if callable(self.extra_vars):
@@ -299,9 +301,12 @@ class KubeTemplateSpawner(Spawner):
         # TODO: Assert type of state.get("manifests")
         self._manifests = state.get("manifests")  # type: ignore[assignment]
         self._connection_manifest = state.get("connection_manifest")
+        kubetemplatespawner_version = state.get("kubetemplatespawner_version")
+        self.log.info(f"Loaded state {kubetemplatespawner_version=}")
 
     def get_state(self) -> Any:
         state = super().get_state()
+        state["kubetemplatespawner_version"] = __version__
         if self._manifests:
             state["manifests"] = self._manifests
         if self._connection_manifest:
@@ -309,6 +314,7 @@ class KubeTemplateSpawner(Spawner):
         return state
 
     def clear_state(self) -> None:
+        super().clear_state()
         self._manifests = []
         self._connection_manifest = None
 
@@ -371,11 +377,14 @@ class KubeTemplateSpawner(Spawner):
                 try:
                     obj = await self._get_connection_object(dyn_client)
                     if not obj:
+                        # clear state if the process is done
+                        self.clear_state()
                         return 0
                     return None
                 except RuntimeError:
                     self.log.exception("Failed to get server")
         # Probably not running
+        self.clear_state()
         return 0
 
         # TODO: PodIP is not guaranteed to be fixed
