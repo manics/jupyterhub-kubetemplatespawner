@@ -1,5 +1,6 @@
 import asyncio
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -200,11 +201,16 @@ class KubeTemplateSpawner(Spawner):
 
     async def deploy_all_manifests(self, dyn_client: DynamicClient) -> None:
         """Deploy all manifests concurrently"""
+        now = datetime.now(UTC)
+        # K8s only supports seconds precision
+        # https://github.com/kubernetes/kubernetes/issues/81026
+        now = now.replace(microsecond=0)
+
         manifests = await self.manifests()
         summaries = [manifest_summary(m) for m in manifests]
         self.log.info(f"Deploying manifests {summaries}")
         events = asyncio.create_task(
-            stream_events(self.events, summaries, self.k8s_timeout)
+            stream_events(self.events, summaries, now, self.k8s_timeout)
         )
 
         try:

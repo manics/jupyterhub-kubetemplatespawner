@@ -1,9 +1,9 @@
 # These are seperated from the spawner to make testing easier
 
 import asyncio
-import logging
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from functools import lru_cache
 from typing import (
     Any,
@@ -14,8 +14,7 @@ from kubernetes_asyncio.config import ConfigException
 from kubernetes_asyncio.dynamic import DynamicClient
 from kubernetes_asyncio.dynamic.exceptions import ResourceNotFoundError
 from kubernetes_asyncio.dynamic.resource import ResourceInstance
-
-log = logging.getLogger(__name__)
+from tornado.log import app_log as log
 
 # YamlT = dict[str, Any]
 YamlT = Any
@@ -136,8 +135,12 @@ async def wait_for_ready(
 
 # kind, name, namespace
 async def stream_events(
-    events: asyncio.Queue | None, objects: list[ManifestSummary], timeout: int
+    events: asyncio.Queue | None,
+    objects: list[ManifestSummary],
+    since: datetime,
+    timeout: int,
 ) -> None:
+    log.info(f"Watching {objects} since {since} for {timeout} s")
     namespaces = set(obj.namespace for obj in objects)
     if len(namespaces) > 1:
         raise ValueError("All objects must be in the same namespace")
@@ -151,11 +154,17 @@ async def stream_events(
             v1.list_namespaced_event, namespace=namespace, timeout_seconds=timeout
         ):
             involved = event["object"].involved_object
+            timestamp = event["object"].event_time or event["object"].last_timestamp
+            if not timestamp:
+                log.error(f"No timestamp in {event['object']}")
             if (involved.kind, involved.name) in obj_match:
-                m = f"Event: {involved.kind}/{involved.name} {event['object'].reason} - {event['object'].message}"
-                log.info(m)
-                if events:
-                    events.put_nowait({"message": m})
+                m = f"{timestamp} {involved.kind}/{involved.name} {event['object'].message}"
+                if timestamp and timestamp < since:
+                    log.info(f"Ignoring old Event: {m}")
+                else:
+                    log.info(f"Event: {m}")
+                    if events:
+                        events.put_nowait({"message": m})
     except Exception:
         log.exception(f"Event watch error for {obj_match} ns={namespace}")
 
