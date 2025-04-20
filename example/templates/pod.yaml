@@ -27,7 +27,7 @@ spec:
       - name: {{ $k | quote }}
         value: {{ $v | quote }}
     {{- end }}
-    image: quay.io/jupyterhub/k8s-singleuser-sample:4.1.0
+    image: {{ .Values.image }}
     imagePullPolicy: IfNotPresent
     name: notebook
     ports:

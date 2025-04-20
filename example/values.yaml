@@ -1,1 +1,2 @@
 serviceEnabled: false
+image: quay.io/jupyterhub/k8s-singleuser-sample:4.1.0
