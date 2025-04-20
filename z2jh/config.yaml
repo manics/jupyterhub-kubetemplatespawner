@@ -11,6 +11,9 @@ hub:
       template_path: /src/kubetemplatespawner/example/
       extra_vars:
         serviceEnabled: true
+      start_timeout: 180
+      # When the pod is fronted by a service it may take a while for the service to update
+      http_timeout: 180
 
 singleuser:
   storage:
