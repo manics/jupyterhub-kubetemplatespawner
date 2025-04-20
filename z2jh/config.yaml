@@ -15,6 +15,17 @@ hub:
       # When the pod is fronted by a service it may take a while for the service to update
       http_timeout: 180
 
+  # Development: you can copy a local file into the pod by uncommenting extraFiles.*,
+  # and passing helm args
+  #   --set-file hub.extraFiles.01-override.stringData=./kubetemplatespawner/_kubernetes.py
+  #   --set-file hub.extraFiles.02-override.stringData=./kubetemplatespawner/spawner.py
+
+  # extraFiles:
+  #   01-override:
+  #     mountPath: /usr/local/lib/python3.12/site-packages/kubetemplatespawner/_kubernetes.py
+  #   02-override:
+  #     mountPath: /usr/local/lib/python3.12/site-packages/kubetemplatespawner/spawner.py
+
 singleuser:
   storage:
     # Everything is done in kubetemplatespawner

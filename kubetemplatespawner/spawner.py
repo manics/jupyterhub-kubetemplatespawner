@@ -101,7 +101,11 @@ class KubeTemplateSpawner(Spawner):
         ),
     )
 
-    k8s_timeout = Int(180, config=True, help="Kubernetes API timeout")
+    k8s_timeout = Int(config=True, help="Kubernetes API timeout")
+
+    @default("k8s_timeout")
+    def _default_k8s_timeout(self):
+        return self.start_timeout
 
     # Override Spawner ip and port defaults
     @default("ip")
