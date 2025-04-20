@@ -1,14 +1,11 @@
 import asyncio
-import os
 import re
 from unittest.mock import Mock
-from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from jupyterhub.objects import Hub, Server
 from kubernetes_asyncio import client
-from kubernetes_asyncio.config import load_kube_config
 from kubernetes_asyncio.utils import create_from_yaml
 from traitlets.config import Config
 
@@ -17,28 +14,6 @@ from kubetemplatespawner.spawner import KubeTemplateSpawner
 from .conftest import ROOT_DIR
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
-
-
-@pytest_asyncio.fixture(scope="module")
-async def k8s_client():
-    await load_kube_config()
-    async with client.ApiClient() as api:
-        yield api
-
-
-@pytest_asyncio.fixture(scope="module")
-async def k8s_namespace(k8s_client):
-    namespace = os.getenv("PYTEST_K8S_NAMESPACE")
-    if namespace:
-        yield namespace
-    else:
-        namespace = "pytest-" + str(uuid4())
-        v1 = client.CoreV1Api(k8s_client)
-        await v1.create_namespace(
-            client.V1Namespace(metadata=client.V1ObjectMeta(name=namespace))
-        )
-        yield namespace
-        await v1.delete_namespace(name=namespace)
 
 
 @pytest_asyncio.fixture(scope="module")

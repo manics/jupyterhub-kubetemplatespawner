@@ -1,41 +1,37 @@
-"""pytest config for kubetemplatespawner tests"""
-
+import os
 from pathlib import Path
+from uuid import uuid4
 
-# from jupyterhub.tests.mocking import MockHub
+import pytest_asyncio
+from kubernetes_asyncio import client, dynamic
+from kubernetes_asyncio.config import load_kube_config
 
 ROOT_DIR = Path(__file__).absolute().parent.parent
 
-# make Hub connectable by default
-# MockHub.hub_ip = "0.0.0.0"
+
+@pytest_asyncio.fixture(scope="module")
+async def k8s_client():
+    await load_kube_config()
+    async with client.ApiClient() as api:
+        yield api
 
 
-# https://docs.pytest.org/en/latest/example/parametrize.html#apply-indirect-on-particular-arguments
-# @pytest.fixture
-# async def app(request):
-#     """
-#     Mock a jupyterhub app for testing
+@pytest_asyncio.fixture(scope="module")
+async def k8s_dynclient(k8s_client):
+    async with dynamic.DynamicClient(k8s_client) as dynclient:
+        yield dynclient
 
-#     Takes a parameter indicating the template directory
-#     """
-#     c = Config()
-#     c.JupyterHub.spawner_class = KubeTemplateSpawner
-#     # c.KubeTemplateSpawner.template_path = str(ROOT_DIR / "example")
-#     # c.JupyterHub.hub_connect_ip = _get_host_default_ip()
 
-#     mocked_app = MockHub.instance(config=c)
-
-#     await mocked_app.initialize([])
-#     await mocked_app.start()
-
-#     try:
-#         yield mocked_app
-#     finally:
-#         # disconnect logging during cleanup because pytest closes captured FDs
-#         # prematurely
-#         mocked_app.log.handlers = []
-#         MockHub.clear_instance()
-#         try:
-#             mocked_app.stop()
-#         except Exception as e:
-#             print("Error stopping Hub: %s" % e, file=sys.stderr)
+@pytest_asyncio.fixture(scope="module")
+async def k8s_namespace(k8s_client):
+    namespace = os.getenv("PYTEST_K8S_NAMESPACE")
+    if namespace:
+        yield namespace
+    else:
+        namespace = "pytest-" + str(uuid4())
+        v1 = client.CoreV1Api(k8s_client)
+        await v1.create_namespace(
+            client.V1Namespace(metadata=client.V1ObjectMeta(name=namespace))
+        )
+        yield namespace
+        await v1.delete_namespace(name=namespace)
