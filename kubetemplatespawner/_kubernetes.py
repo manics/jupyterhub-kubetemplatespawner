@@ -242,9 +242,8 @@ async def get_deletions_by_labels(
         obj_annotations = obj.metadata.get("annotations", {})
         for k, v in annotations.items():
             if obj_annotations.get(k) != v:
-                log.info(
-                    f"Not deleting {obj.kind}/{obj.name} ns={obj.namespace}: Missing {k}={v}"
-                )
+                s = manifest_summary(obj)
+                log.info(f"Not deleting {s}: Missing annotation {k}={v}")
                 break
         else:
             to_delete.append(obj)
