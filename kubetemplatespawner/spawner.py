@@ -409,22 +409,22 @@ class KubeTemplateSpawner(Spawner):
 
     async def delete_forever(self):
         # This is called when deleting a user, or when deleting a named server.
+        names = self.get_names()
+
+        labels = {
+            "app.kubernetes.io/instance": self.instance_name,
+            "hub.jupyter.org/username": names["escaped_username"],
+        }
         if self.name:
+            labels["hub.jupyter.org/servername"] = names["escaped_servername"]
             lifecycle_policy = LifeCyclePolicy.SERVER_DELETED.value
         else:
             lifecycle_policy = LifeCyclePolicy.USER_DELETED.value
+        annotations = {self.lifecycle_annotation_key: lifecycle_policy}
 
-        names = self.get_names()
         async with ApiClient() as api:
             async with DynamicClient(api) as dyn_client:
-                await self.delete_resources(
-                    dyn_client,
-                    {
-                        "app.kubernetes.io/instance": self.instance_name,
-                        "hub.jupyter.org/username": names["escaped_username"],
-                    },
-                    {self.lifecycle_annotation_key: lifecycle_policy},
-                )
+                await self.delete_resources(dyn_client, labels, annotations)
 
     async def poll(self) -> None | int:
         # None: single-user process is running.
