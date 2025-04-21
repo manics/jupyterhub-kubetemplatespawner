@@ -46,8 +46,8 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/manics/kubetemplatespawner.git"
-Issues = "https://github.com/manics/kubetemplatespawner/issues"
+Repository = "https://github.com/manics/jupyterhub-kubetemplatespawner.git"
+Issues = "https://github.com/manics/jupyterhub-kubetemplatespawner/issues"
 
 [tool.setuptools.packages.find]
 include = ["kubetemplatespawner"]
