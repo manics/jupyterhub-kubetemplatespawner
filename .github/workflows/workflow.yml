@@ -140,8 +140,8 @@ jobs:
 
       - name: Build package
         run: |
-          python -mpip install wheel
-          python setup.py sdist bdist_wheel
+          python -mpip install build
+          python -mbuild
 
       - name: Publish to PyPI (trusted publisher)
         uses: pypa/gh-action-pypi-publish@v1.12.4

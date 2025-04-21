@@ -37,7 +37,8 @@ requires-python = ">= 3.12"
 kubetemplate = "kubetemplatespawner.spawner:KubeTemplateSpawner"
 
 [project.optional-dependencies]
-test = [
+dev = [
+  "build>=1.2.2",
   "pre_commit>=4.1.0",
   "pytest>=8.3.4",
   "pytest-asyncio>=0.25.3",
