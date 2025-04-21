@@ -10,6 +10,6 @@ RUN MACHINE=$(uname -m) && \
   helm version 
 
 COPY . /src/kubetemplatespawner
-RUN python -mpip install /src/kubetemplatespawner
+RUN python -mpip install -r /src/kubetemplatespawner/requirements.txt /src/kubetemplatespawner
 
 USER jovyan
