@@ -59,6 +59,7 @@ async def test_template_namespace():
         "escaped_servername": "x---7d589dfd",
         "escaped_user_server": "user-1---751ab4e2--x---7d589dfd",
         "escaped_username": "user-1---751ab4e2",
+        "instance": "jupyter",
         "ip": "0.0.0.0",
         "namespace": "dev",
         "port": 8888,
@@ -114,8 +115,8 @@ async def test_start(mocker):
     delete_manifest = mocker.patch("kubetemplatespawner.spawner.delete_manifest")
     deploy_manifest = mocker.patch("kubetemplatespawner.spawner.deploy_manifest")
 
-    get_resource = mocker.patch(
-        "kubetemplatespawner.spawner.get_resource",
+    get_resource_by_name = mocker.patch(
+        "kubetemplatespawner.spawner.get_resource_by_name",
         return_value=ResourceInstance(
             None, {"kind": "Pod", "status": {"podIP": "1.2.3.4"}}
         ),
@@ -127,8 +128,8 @@ async def test_start(mocker):
 
     assert not delete_manifest.called
 
-    assert len(get_resource.call_args_list) == 1
-    assert get_resource.call_args_list[0].args[1:] == (
+    assert len(get_resource_by_name.call_args_list) == 1
+    assert get_resource_by_name.call_args_list[0].args[1:] == (
         "v1",
         "Pod",
         "jupyter-user-1",
@@ -148,32 +149,42 @@ async def test_start(mocker):
 
 
 async def test_stop(mocker):
-    delete_manifest = mocker.patch("kubetemplatespawner.spawner.delete_manifest")
     deploy_manifest = mocker.patch("kubetemplatespawner.spawner.deploy_manifest")
-    get_resource = mocker.patch("kubetemplatespawner.spawner.get_resource")
+    get_deletions_by_labels = mocker.patch(
+        "kubetemplatespawner.spawner.get_deletions_by_labels"
+    )
 
     k = mock_spawner()
     await k.stop()
 
     assert not deploy_manifest.called
-    assert not get_resource.called
 
-    assert len(delete_manifest.call_args_list) == 2
-    delete1 = delete_manifest.call_args_list[0].args[1]
-    delete2 = delete_manifest.call_args_list[1].args[1]
-    if delete1["kind"] != "Pod":
+    assert len(get_deletions_by_labels.call_args_list) == 2
+    delete1 = get_deletions_by_labels.call_args_list[0].args
+    delete2 = get_deletions_by_labels.call_args_list[1].args
+    if delete1[2] != "Pod":
         delete1, delete2 = delete2, delete1
 
-    assert delete1["kind"] == "Pod"
-    assert delete1["metadata"]["name"] == "jupyter-user-1"
-    assert delete2["kind"] == "PersistentVolumeClaim"
-    assert delete2["metadata"]["name"] == "jupyter-user-1"
+    assert delete1[1:] == (
+        "v1",
+        "Pod",
+        "default",
+        {
+            "app.kubernetes.io/instance": "jupyter",
+            "hub.jupyter.org/servername": "",
+            "hub.jupyter.org/username": "user-1",
+        },
+        {"kubetemplatespawner/lifecycle": "server-stopped"},
+    )
 
-    assert len(delete_manifest.call_args_list) == 2
-
-    assert delete_manifest.call_args_list[0].args[2] == {
-        "kubetemplatespawner/delete": "server"
-    }
-    assert delete_manifest.call_args_list[1].args[2] == {
-        "kubetemplatespawner/delete": "server"
-    }
+    assert delete2[1:] == (
+        "v1",
+        "PersistentVolumeClaim",
+        "default",
+        {
+            "app.kubernetes.io/instance": "jupyter",
+            "hub.jupyter.org/servername": "",
+            "hub.jupyter.org/username": "user-1",
+        },
+        {"kubetemplatespawner/lifecycle": "server-stopped"},
+    )

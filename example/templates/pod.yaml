@@ -6,7 +6,7 @@ metadata:
   {{- if not .Values.serviceEnabled }}
     kubetemplatespawner/connection: "true"
   {{- end }}
-    kubetemplatespawner/delete: server
+    kubetemplatespawner/lifecycle: server-stopped
   labels:
     app.kubernetes.io/instance: {{ .Values.instance }}
     app.kubernetes.io/name: jupyterhub

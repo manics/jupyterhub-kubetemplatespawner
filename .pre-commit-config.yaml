@@ -24,4 +24,6 @@ repos:
       - id: mypy
         additional_dependencies:
           - types-pyyaml
+        # args:
+        #   - --check-untyped-defs
         files: ^kubetemplatespawner

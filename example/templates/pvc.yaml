@@ -3,7 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   annotations:
     hub.jupyter.org/username: {{ .Values.unescaped_username | quote }}
-    kubetemplatespawner/delete: user
+    kubetemplatespawner/lifecycle: user-deleted
   labels:
     app.kubernetes.io/instance: {{ .Values.instance }}
     app.kubernetes.io/name: jupyterhub

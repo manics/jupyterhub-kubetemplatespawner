@@ -58,11 +58,19 @@ User server resources (that aren't shared between default and named servers) mus
 
 - `kubetemplatespawner/connection=true`: One resource per server (either a pod or service) must have this annotation to indicate JupyterHub should use this resource to connect to the server
 
-Deletion `kubetemplatespawner/delete`:
+## Lifecycle/deletion
 
-- `kubetemplatespawner/delete=user`: Delete this resource when the user is deleted
-- `kubetemplatespawner/delete=server`: Delete this resource when the user server is deleted
-- Other values are currently ignored, e.g. `kubetemplatespawner/delete=never` can be used to make it clear you haven't forgotten to add the annotation
+These control when resources are deleted.
+
+- `kubetemplatespawner/lifecycle=user-deleted`: Delete this resource when the user is deleted, typically used for storage volumes
+- `kubetemplatespawner/lifecycle=server-stopped`: Delete this resource when the user server is stopped, typically the default for most resources other than persistent storage
+- `kubetemplatespawner/lifecycle=server-deleted`: Delete this resource when a named server is deleted, use this if a named server has a separate storage volume that doesn't need to be kept
+
+Resources are deleted by matching all labels:
+
+- `app.kubernetes.io/instance: {{ .Values.instance }}`
+- `hub.jupyter.org/username: "{{ .Values.escaped_username }}"`
+- `hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"` (servers only)
 
 ## Example
 

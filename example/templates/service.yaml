@@ -5,7 +5,7 @@ metadata:
   annotations:
     hub.jupyter.org/username: {{ .Values.unescaped_username | quote }}
     kubetemplatespawner/connection: "true"
-    kubetemplatespawner/delete: server
+    kubetemplatespawner/lifecycle: server-stopped
   labels:
     app.kubernetes.io/instance: {{ .Values.instance }}
     app.kubernetes.io/name: jupyterhub

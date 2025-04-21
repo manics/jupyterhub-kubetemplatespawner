@@ -4,8 +4,10 @@ metadata:
   annotations:
     hub.jupyter.org/username: "user-1@\U0001F427"
     kubetemplatespawner/connection: "true"
-    kubetemplatespawner/delete: server
+    kubetemplatespawner/lifecycle: server-stopped
   labels:
+    app.kubernetes.io/instance: jupyter
+    app.kubernetes.io/name: jupyterhub
     app.kubernetes.io/component: singleuser-server
     app.kubernetes.io/managed-by: kubetemplatespawner
     hub.jupyter.org/network-access-hub: "true"

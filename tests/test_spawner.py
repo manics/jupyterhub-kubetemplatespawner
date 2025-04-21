@@ -116,19 +116,29 @@ async def test_spawner(k8s_client, k8s_namespace, config, hub):
     assert re.match(r"http://\d+\.\d+\.\d+\.\d+:8888$", url)
 
     assert spawner._manifests
-    pod_manifest = None
+
+    pod_name = None
+    pvc_name = None
     for m in spawner._manifests:
         if m["kind"] == "Pod":
-            pod_manifest = m
-    assert pod_manifest
-    pod_name = pod_manifest["metadata"]["name"]
+            assert not pod_name
+            pod_name = m["metadata"]["name"]
+        if m["kind"] == "PersistentVolumeClaim":
+            assert not pvc_name
+            pvc_name = m["metadata"]["name"]
+    assert pod_name
+    assert pvc_name
 
     v1 = client.CoreV1Api(k8s_client)
 
-    # verify the pod exists
+    # verify the pod and PVC exist
     pods = await v1.list_namespaced_pod(namespace=k8s_namespace)
     pod_names = [p.metadata.name for p in pods.items]
     assert pod_name in pod_names
+
+    pvcs = await v1.list_namespaced_persistent_volume_claim(namespace=k8s_namespace)
+    pvc_names = [p.metadata.name for p in pvcs.items]
+    assert pvc_name in pvc_names
 
     # pod should be running when start returns
     pod = await v1.read_namespaced_pod(namespace=k8s_namespace, name=pod_name)
@@ -142,10 +152,14 @@ async def test_spawner(k8s_client, k8s_namespace, config, hub):
 
     await spawner.stop()
 
-    # verify pod is gone
+    # verify pod is gone but PVC is kept
     pods = await v1.list_namespaced_pod(namespace=k8s_namespace)
     pod_names = [p.metadata.name for p in pods.items]
     assert pod_name not in pod_names
+
+    pvcs = await v1.list_namespaced_persistent_volume_claim(namespace=k8s_namespace)
+    pvc_names = [p.metadata.name for p in pvcs.items]
+    assert pvc_name in pvc_names
 
     # verify exit status
     status = await spawner.poll()
@@ -154,3 +168,10 @@ async def test_spawner(k8s_client, k8s_namespace, config, hub):
     # check state has been cleared
     assert not spawner._manifests
     assert not spawner._connection_manifest
+
+    # should delete PVC
+    await spawner.delete_forever()
+
+    pvcs = await v1.list_namespaced_persistent_volume_claim(namespace=k8s_namespace)
+    pvc_names = [p.metadata.name for p in pvcs.items]
+    assert pvc_name not in pvc_names

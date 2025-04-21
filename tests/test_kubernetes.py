@@ -8,6 +8,7 @@ from kubetemplatespawner._kubernetes import (
     ManifestSummary,
     delete_manifest,
     deploy_manifest,
+    get_deletions_by_labels,
     get_resource_by_labels,
     get_resource_by_name,
     manifest_summary,
@@ -18,7 +19,10 @@ pytestmark = pytest.mark.asyncio(loop_scope="module")
 
 
 def config_map(
-    name="my-config", namespace="my-namespace", annotations=None, labels=None
+    name="my-config",
+    namespace="my-namespace",
+    labels=None,
+    annotations=None,
 ):
     manifest = {
         "apiVersion": "v1",
@@ -93,32 +97,69 @@ async def test_delete_manifest(k8s_client, k8s_dynclient, k8s_namespace):
     v1 = client.CoreV1Api(k8s_client)
     name = f"config-{uuid4()}"
 
-    cm_names = [f"{name}-0", f"{name}-1", f"{name}-2"]
+    cm_names = [f"{name}-0", f"{name}-1"]
 
     m0 = config_map(cm_names[0], k8s_namespace)
     await v1.create_namespaced_config_map(k8s_namespace, m0)
 
-    m1 = config_map(cm_names[1], k8s_namespace, {"custom.lifecycle": "delete1"})
+    m1 = config_map(cm_names[1], k8s_namespace)
     await v1.create_namespaced_config_map(k8s_namespace, m1)
 
-    m2 = config_map(cm_names[2], k8s_namespace, {"custom.lifecycle": "delete2"})
+    await delete_manifest(k8s_dynclient, m0, 30)
+    assert await _list_cm_names(v1, k8s_namespace, name) == [cm_names[1]]
+
+    await delete_manifest(k8s_dynclient, m1, 30)
+    assert await _list_cm_names(v1, k8s_namespace, name) == []
+
+
+async def test_get_deletions_by_labels(k8s_client, k8s_dynclient, k8s_namespace):
+    v1 = client.CoreV1Api(k8s_client)
+    uuid = uuid4()
+    name = f"config-{uuid}"
+
+    cm_names = [f"{name}-0", f"{name}-1", f"{name}-2"]
+
+    m0 = config_map(cm_names[0], k8s_namespace, {f"{uuid}/a": "1"}, {})
+    await v1.create_namespaced_config_map(k8s_namespace, m0)
+
+    m1 = config_map(
+        cm_names[1], k8s_namespace, {f"{uuid}/a": "1"}, {"custom.lifecycle": "delete1"}
+    )
+    await v1.create_namespaced_config_map(k8s_namespace, m1)
+
+    m2 = config_map(
+        cm_names[2], k8s_namespace, {f"{uuid}/a": "1"}, {"custom.lifecycle": "delete2"}
+    )
     await v1.create_namespaced_config_map(k8s_namespace, m2)
+
     assert await _list_cm_names(v1, k8s_namespace, name) == cm_names
 
-    # Nothing matches annotation
-    for m in [m0, m1, m2]:
-        await delete_manifest(k8s_dynclient, m, {"custom.lifecycle": "delete3"}, 30)
-    assert await _list_cm_names(v1, k8s_namespace, name) == cm_names
+    cms = await get_deletions_by_labels(
+        k8s_dynclient, "v1", "ConfigMap", k8s_namespace, {f"{uuid}/a": "2"}, {}
+    )
+    assert len(cms) == 0
 
-    # Delete m1
-    for m in [m0, m1, m2]:
-        await delete_manifest(k8s_dynclient, m, {"custom.lifecycle": "delete1"}, 30)
-    assert await _list_cm_names(v1, k8s_namespace, name) == [cm_names[0], cm_names[2]]
+    cms = await get_deletions_by_labels(
+        k8s_dynclient,
+        "v1",
+        "ConfigMap",
+        k8s_namespace,
+        {f"{uuid}/a": "1"},
+        {"custom.lifecycle": "delete1"},
+    )
+    assert len(cms) == 1
+    assert manifest_summary(cms[0]) == ManifestSummary(
+        "v1", "ConfigMap", cm_names[1], k8s_namespace
+    )
 
-    # Delete m0, m2
-    for m in [m0, m1, m2]:
-        await delete_manifest(k8s_dynclient, m, {}, 30)
-    assert not (await _list_cm_names(v1, k8s_namespace, name))
+    cms = await get_deletions_by_labels(
+        k8s_dynclient, "v1", "ConfigMap", k8s_namespace, {f"{uuid}/a": "1"}, {}
+    )
+    assert len(cms) == 3
+    summaries = sorted(manifest_summary(cm) for cm in cms)
+    assert summaries == [
+        ManifestSummary("v1", "ConfigMap", name, k8s_namespace) for name in cm_names
+    ]
 
 
 async def test_get_resource_by_name(k8s_client, k8s_dynclient, k8s_namespace):
@@ -155,18 +196,18 @@ async def test_get_resource_by_labels(k8s_client, k8s_dynclient, k8s_namespace):
 
     cm_names = [f"{name}-0", f"{name}-1", f"{name}-2", f"{name}-3"]
 
-    m0 = config_map(cm_names[0], k8s_namespace, {}, {f"{uuid}/a": "1", f"{uuid}/b": ""})
+    m0 = config_map(cm_names[0], k8s_namespace, {f"{uuid}/a": "1", f"{uuid}/b": ""}, {})
     await v1.create_namespaced_config_map(k8s_namespace, m0)
 
     m1 = config_map(
-        cm_names[1], k8s_namespace, {}, {f"{uuid}/a": "1", f"{uuid}/b": "2"}
+        cm_names[1], k8s_namespace, {f"{uuid}/a": "1", f"{uuid}/b": "2"}, {}
     )
     await v1.create_namespaced_config_map(k8s_namespace, m1)
 
-    m2 = config_map(cm_names[2], k8s_namespace, {}, {f"{uuid}/a": "1"})
+    m2 = config_map(cm_names[2], k8s_namespace, {f"{uuid}/a": "1"}, {})
     await v1.create_namespaced_config_map(k8s_namespace, m2)
 
-    m3 = config_map(cm_names[3], k8s_namespace, {}, {f"{uuid}/a": "2"})
+    m3 = config_map(cm_names[3], k8s_namespace, {f"{uuid}/a": "2"}, {})
     await v1.create_namespaced_config_map(k8s_namespace, m3)
 
     cms = await get_resource_by_labels(

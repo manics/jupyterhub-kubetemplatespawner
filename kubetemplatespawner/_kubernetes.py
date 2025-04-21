@@ -197,40 +197,59 @@ async def deploy_manifest(
 
 async def delete_manifest(
     dyn_client: DynamicClient,
-    manifest: YamlT,
-    annotations: dict[str, str],
+    manifest: YamlT | ManifestSummary,
     timeout: int,
 ) -> None:
-    s = manifest_summary(manifest)
-
+    if isinstance(manifest, ManifestSummary):
+        s = manifest
+    else:
+        s = manifest_summary(manifest)
     resource = await k8s_resource(dyn_client, s.api_version, s.kind)
-    obj = await resource.get(name=s.name, namespace=s.namespace)
-    obj_annotations = obj.metadata.get("annotations", {})
-
-    for k, v in annotations.items():
-        if obj_annotations.get(k) != v:
-            log.info(
-                f"Not deleting {s.kind}/{s.name} ns={s.namespace}: Missing {k}={v}"
-            )
-            return
 
     try:
-        log.info(f"Deleting {s.kind}/{s.name} ns={s.namespace}")
+        log.info(f"Deleting {s}")
         await resource.delete(name=s.name, namespace=s.namespace)
 
         if timeout:
             for _ in range(timeout):
                 obj = await resource.get(name=s.name, namespace=s.namespace)
                 if not_found(obj):
-                    log.info(f"{s.kind}/{s.name} deleted")
+                    log.info(f"Deleted {s}")
                     return
                 await asyncio.sleep(1)
-            log.error(f"Timeout waiting for {s.kind}/{s.name} to be deleted")
+            log.error(f"Timeout waiting for {s} to be deleted")
         else:
-            log.info(f"Delete request sent for {s.kind}/{s.name}")
+            log.info(f"Delete request sent for {s}")
     except Exception:
-        log.exception(f"Failed to delete {s.kind}/{s.name}")
+        log.exception(f"Failed to delete {s}")
         raise
+
+
+async def get_deletions_by_labels(
+    dyn_client: DynamicClient,
+    api_version: str,
+    kind: str,
+    namespace: str,
+    labels: dict[str, str],
+    annotations: dict[str, str],
+) -> list[ResourceInstance]:
+    to_delete: list[ResourceInstance] = []
+
+    objs = await get_resource_by_labels(
+        dyn_client, api_version, kind, labels, namespace
+    )
+    for obj in objs:
+        obj_annotations = obj.metadata.get("annotations", {})
+        for k, v in annotations.items():
+            if obj_annotations.get(k) != v:
+                log.info(
+                    f"Not deleting {obj.kind}/{obj.name} ns={obj.namespace}: Missing {k}={v}"
+                )
+                break
+        else:
+            to_delete.append(obj)
+
+    return to_delete
 
 
 async def get_resource_by_name(

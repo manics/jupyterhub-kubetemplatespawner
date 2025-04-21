@@ -1,6 +1,7 @@
 import asyncio
 import re
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -19,6 +20,7 @@ from traitlets import (
     Callable,
     Dict,
     Int,
+    List,
     TraitError,
     Unicode,
     Union,
@@ -31,6 +33,7 @@ from ._kubernetes import (
     YamlT,
     delete_manifest,
     deploy_manifest,
+    get_deletions_by_labels,
     get_resource_by_name,
     load_config,
     manifest_summary,
@@ -40,6 +43,12 @@ from ._version import __version__
 
 # alphanumeric chars, space, some punctuation
 SERVER_NAME_PATTERN = r"^[\w \.\-\+_]*$"
+
+
+class LifeCyclePolicy(StrEnum):
+    USER_DELETED = "user-deleted"
+    SERVER_STOPPED = "server-stopped"
+    SERVER_DELETED = "server-deleted"
 
 
 class KubeTemplateException(Exception):
@@ -64,16 +73,26 @@ class KubeTemplateSpawner(Spawner):
         help="Unique name to distinguish between multiple JupyterHub instances",
     )
 
-    deletion_annotation_key = Unicode(
-        "kubetemplatespawner/delete",
-        config=True,
-        help="Annotation key for the delete policy",
-    )
-
     connection_annotation_key = Unicode(
         "kubetemplatespawner/connection",
         config=True,
         help="Annotation key for the resource used for connecting to server",
+    )
+
+    lifecycle_annotation_key = Unicode(
+        "kubetemplatespawner/lifecycle",
+        config=True,
+        help="Annotation key for the lifecycle policy",
+    )
+
+    resource_kinds = List(
+        Unicode,
+        default_value=[],
+        help=(
+            "List of apiVersion/kind resources to search for deletion. "
+            "Default is to obtain these from rendered manifests. "
+            "Specify this if some resources are created conditionally."
+        ),
     )
 
     namespace = Unicode(config=True, help="Kubernetes namespace to spawn user pods in")
@@ -241,21 +260,34 @@ class KubeTemplateSpawner(Spawner):
         except asyncio.CancelledError:
             self.log.info(f"Cancelled: events({summaries})")
 
-    async def delete_all_manifests(
-        self, dyn_client: DynamicClient, annotations: dict[str, str]
+    async def delete_resources(
+        self,
+        dyn_client: DynamicClient,
+        labels: dict[str, str],
+        annotations: dict[str, str],
     ) -> None:
-        manifests = await self.manifests()
-        summaries = [manifest_summary(m) for m in manifests]
+        to_delete = []
+        api_kinds = [api_kind.split("/") for api_kind in self.resource_kinds]
+        if not api_kinds:
+            manifests = await self.manifests()
+            for m in manifests:
+                api_kinds.append((m["apiVersion"], m["kind"]))
+
+        self.log.info(f"Checking {api_kinds} for deletion {labels=} {annotations=}")
+        for api_version, kind in api_kinds:
+            to_delete.extend(
+                await get_deletions_by_labels(
+                    dyn_client, api_version, kind, self.namespace, labels, annotations
+                )
+            )
+
+        summaries = [manifest_summary(obj) for obj in to_delete]
         self.log.info(f"Deleting manifests {summaries}")
 
         try:
             async with asyncio.TaskGroup() as tg:
-                for manifest in manifests:
-                    tg.create_task(
-                        delete_manifest(
-                            dyn_client, manifest, annotations, self.k8s_timeout
-                        )
-                    )
+                for obj in summaries:
+                    tg.create_task(delete_manifest(dyn_client, obj, self.k8s_timeout))
         except ExceptionGroup:
             self.log.exception("Delete failed")
             raise
@@ -360,28 +392,39 @@ class KubeTemplateSpawner(Spawner):
     async def stop(self, now=False) -> None:
         # now=False: shutdown the server gracefully
         # now=True: terminate the server immediately (not implemented)
+        names = self.get_names()
         async with ApiClient() as api:
             async with DynamicClient(api) as dyn_client:
-                await self.delete_all_manifests(
-                    dyn_client, {self.deletion_annotation_key: "server"}
+                await self.delete_resources(
+                    dyn_client,
+                    {
+                        "app.kubernetes.io/instance": self.instance_name,
+                        "hub.jupyter.org/servername": names["escaped_servername"],
+                        "hub.jupyter.org/username": names["escaped_username"],
+                    },
+                    {
+                        self.lifecycle_annotation_key: LifeCyclePolicy.SERVER_STOPPED.value
+                    },
                 )
 
     async def delete_forever(self):
         # This is called when deleting a user, or when deleting a named server.
-        # If this is a named server we should not delete user resources.
-
-        # TODO: This doesn't yet delete named server resources with label
-        # deletion_annotation_key=user
-        # that don't match a default server manifest
         if self.name:
-            # server resources should already be deleted in stop()
-            self.log.warn(f"Ignoring delete_forever of named server {self.name}")
+            lifecycle_policy = LifeCyclePolicy.SERVER_DELETED.value
         else:
-            async with ApiClient() as api:
-                async with DynamicClient(api) as dyn_client:
-                    await self.delete_all_manifests(
-                        dyn_client, {self.deletion_annotation_key: "user"}
-                    )
+            lifecycle_policy = LifeCyclePolicy.USER_DELETED.value
+
+        names = self.get_names()
+        async with ApiClient() as api:
+            async with DynamicClient(api) as dyn_client:
+                await self.delete_resources(
+                    dyn_client,
+                    {
+                        "app.kubernetes.io/instance": self.instance_name,
+                        "hub.jupyter.org/username": names["escaped_username"],
+                    },
+                    {self.lifecycle_annotation_key: lifecycle_policy},
+                )
 
     async def poll(self) -> None | int:
         # None: single-user process is running.
