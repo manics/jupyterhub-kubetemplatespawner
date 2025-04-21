@@ -47,12 +47,15 @@ jobs:
 
       - uses: actions/setup-node@v4
 
-      - uses: jupyterhub/action-k3s-helm@v4
+      # - uses: jupyterhub/action-k3s-helm@v4
+      - uses: manics/action-k3s-helm@registry
+        id: k3s
         with:
           k3s-channel: ${{ matrix.k3s }}
           metrics-enabled: false
           traefik-enabled: false
           docker-enabled: false
+          registry-enabled: true
 
       - name: Install dependencies
         run: |
@@ -61,6 +64,22 @@ jobs:
 
       - name: Run tests
         run: python -mpytest -v
+
+      - name: Build image
+        run: |
+          docker build -t ${{ steps.k3s.outputs.registry-host }}/kubetemplatespawner .
+          docker push ${{ steps.k3s.outputs.registry-host }}/kubetemplatespawner
+
+      - name: Deploy Z2JH
+        run: |
+          yq -i -e '(.hub.image.name="${{ steps.k3s.outputs.registry-host }}/kubetemplatespawner") | (.hub.image.tag="latest")' config.yaml
+          git diff
+
+          kubectl create namespace dev
+          ../ci/run_codeblocks.py README.md --run
+
+          kubectl -n dev describe deploy/hub
+        working-directory: ./z2jh
 
   container:
     name: Container
