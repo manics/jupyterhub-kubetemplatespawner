@@ -31,7 +31,7 @@ from ._kubernetes import (
     YamlT,
     delete_manifest,
     deploy_manifest,
-    get_resource,
+    get_resource_by_name,
     load_config,
     manifest_summary,
     stream_events,
@@ -55,6 +55,13 @@ class KubeTemplateSpawner(Spawner):
         allow_none=False,
         config=True,
         help="Directory containing a Helm chart for the singleuser server.",
+    )
+
+    instance_name = Unicode(
+        "jupyter",
+        allow_none=False,
+        config=True,
+        help="Unique name to distinguish between multiple JupyterHub instances",
     )
 
     deletion_annotation_key = Unicode(
@@ -256,6 +263,7 @@ class KubeTemplateSpawner(Spawner):
     def template_namespace(self) -> dict[str, YamlT]:
         d = super().template_namespace()
         d.update(self.get_names())
+        d["instance"] = self.instance_name
         d["namespace"] = self.namespace
         d["ip"] = self.ip
         self.port: int
@@ -296,7 +304,9 @@ class KubeTemplateSpawner(Spawner):
                     self._connection_manifest = manifest
 
         m = manifest_summary(self._connection_manifest)
-        obj = await get_resource(dyn_client, m.api_version, m.kind, m.name, m.namespace)
+        obj = await get_resource_by_name(
+            dyn_client, m.api_version, m.kind, m.name, m.namespace
+        )
         return obj
 
     # JupyterHub Spawner

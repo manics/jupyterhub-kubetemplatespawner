@@ -1,2 +1,4 @@
+# Whether to connect directly to the pod, or front the pod with a service
 serviceEnabled: false
+# Singleuser server image
 image: quay.io/jupyterhub/k8s-singleuser-sample:4.1.0

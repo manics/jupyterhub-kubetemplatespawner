@@ -10,11 +10,11 @@ A JupyterHub Kubernetes spawner that uses Kubernetes templates.
 
 This takes a set of parameterised Helm templates that deploy a JupyterHub singleuser server, then:
 
-- creates a temporary Helm `values.yaml` file with JupyterHub variables (e.g. user and server name)
+- creates a temporary Helm `values.yaml` file with JupyterHub template variables
 - runs `helm template ...`
 - deploys the templated manifests
 
-The following template variables are available:
+### The following template variables are available
 
 Raw user and server:
 
@@ -28,8 +28,9 @@ Escaped user and server (based on the KubeSpawner _safe_ scheme):
 - `escaped_servername`
 - `escaped_user_server`
 
-Runtime variables:
+Spawner variables:
 
+- `instance`: Instance name to distinguish multiple JupyterHub deployments
 - `namespace`: Kubernetes namespace
 - `ip`: IP the server should listen on
 - `port` Port the server should listen on
@@ -39,9 +40,21 @@ Additional variables:
 
 - Variables from `KubeTemplateSpawner.extra_vars` are included, and can override the above
 
-## Annotations
+## Labels
 
-Connection `kubetemplatespawner/connection`:
+All resources must include an instance label to distinguish multiple deployments:
+
+- `app.kubernetes.io/instance: {{ .Values.instance }}`
+
+User resources must include:
+
+- `hub.jupyter.org/username: "{{ .Values.escaped_username }}"`
+
+User server resources (that aren't shared between default and named servers) must also include:
+
+- `hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"`
+
+## Connection annotation:
 
 - `kubetemplatespawner/connection=true`: One resource per server (either a pod or service) must have this annotation to indicate JupyterHub should use this resource to connect to the server
 

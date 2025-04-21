@@ -233,7 +233,7 @@ async def delete_manifest(
         raise
 
 
-async def get_resource(
+async def get_resource_by_name(
     dyn_client, api_version, kind, name, namespace="default"
 ) -> ResourceInstance | None:
     resource = await k8s_resource(dyn_client, api_version, kind)
@@ -243,3 +243,19 @@ async def get_resource(
             return None
         raise RuntimeError(f"Unexpected status: {obj}")
     return obj
+
+
+async def get_resource_by_labels(
+    dyn_client,
+    api_version,
+    kind,
+    labels: dict[str, str] = {},
+    namespace="default",
+) -> list[ResourceInstance]:
+    resource = await k8s_resource(dyn_client, api_version, kind)
+    label_selector = ",".join(f"{k}={v}" for (k, v) in labels.items())
+
+    obj = await resource.get(label_selector=label_selector, namespace=namespace)
+    if not obj.kind.endswith("List"):
+        raise RuntimeError(f"Unexpected object: {obj}")
+    return obj.items

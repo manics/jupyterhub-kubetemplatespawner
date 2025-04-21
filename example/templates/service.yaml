@@ -7,13 +7,13 @@ metadata:
     kubetemplatespawner/connection: "true"
     kubetemplatespawner/delete: server
   labels:
-    # app.kubernetes.io/instance: jupyterhub
-    # app.kubernetes.io/name: jupyterhub
+    app.kubernetes.io/instance: {{ .Values.instance }}
+    app.kubernetes.io/name: jupyterhub
     app.kubernetes.io/component: singleuser-server
     app.kubernetes.io/managed-by: kubetemplatespawner
     hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"
     hub.jupyter.org/username: "{{ .Values.escaped_username }}"
-  name: jupyter-{{ .Values.escaped_user_server }}
+  name: {{ .Values.instance }}-{{ .Values.escaped_user_server }}
   namespace: {{ .Values.namespace }}
 spec:
   type: ClusterIP
@@ -23,6 +23,7 @@ spec:
       port: {{ .Values.port }}
       target_port: {{ .Values.port }}
   selector:
+    app.kubernetes.io/instance: {{ .Values.instance }}
     app.kubernetes.io/component: singleuser-server
     hub.jupyter.org/servername: "{{ .Values.escaped_servername }}"
     hub.jupyter.org/username: "{{ .Values.escaped_username }}"
