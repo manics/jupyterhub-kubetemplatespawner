@@ -7,6 +7,9 @@ hub:
   config:
     JupyterHub:
       spawner_class: kubetemplate
+    Authenticator:
+      admin_users:
+        - admin
     KubeTemplateSpawner:
       template_path: /src/kubetemplatespawner/example/
       extra_vars:
@@ -38,7 +41,7 @@ proxy:
 ingress:
   enabled: true
   hosts:
-    - example.127.0.0.1.nip.io
+    - "%K8S_HOSTNAME%"
 
 scheduling:
   userScheduler:

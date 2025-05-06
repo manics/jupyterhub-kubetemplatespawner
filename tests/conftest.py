@@ -2,11 +2,27 @@ import os
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 import pytest_asyncio
 from kubernetes_asyncio import client, dynamic
 from kubernetes_asyncio.config import load_kube_config
 
 ROOT_DIR = Path(__file__).absolute().parent.parent
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--jupyterhub-host",
+        action="store",
+        default="http://localhost/",
+        help="JupyterHub host and base URL",
+    )
+
+
+@pytest.fixture
+def jupyterhub_host(request):
+    h = request.config.getoption("--jupyterhub-host")
+    return h.rstrip("/") + "/"
 
 
 @pytest_asyncio.fixture(scope="module")
