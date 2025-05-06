@@ -47,13 +47,30 @@ jobs:
 
       - uses: actions/setup-node@v4
 
-      # - uses: jupyterhub/action-k3s-helm@v4
-      - uses: manics/action-k3s-helm@registry
-        id: k3s
+      - name: Setup self-signed CA
+        run: |
+          ./ci/self-signed-ca.sh
+
+      # TODO: use https://github.com/jupyterhub/action-k3s-helm/pull/122/ if it's merged
+      - uses: jupyterhub/action-k3s-helm@v4
         with:
           k3s-channel: ${{ matrix.k3s }}
           metrics-enabled: false
-          registry-enabled: true
+
+      - name: Setup local registry
+        run: |
+          kubectl create ns registry
+          kubectl create secret tls registry-cert \
+            -n registry \
+            --cert=certs/registry.crt \
+            --key=certs/registry.key
+          kubectl apply -f ./ci/registry.yaml -n registry
+          kubectl rollout status --watch --timeout=5m deployment/registry -n registry
+
+      - name: Registry address
+        id: registry
+        run: |
+          echo "registry-host=$CERTIFICATE_IP:5000" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         run: |
@@ -65,8 +82,8 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -t ${{ steps.k3s.outputs.registry-host }}/kubetemplatespawner .
-          docker push ${{ steps.k3s.outputs.registry-host }}/kubetemplatespawner
+          docker build -t ${{ steps.registry.outputs.registry-host }}/kubetemplatespawner .
+          docker push ${{ steps.registry.outputs.registry-host }}/kubetemplatespawner
 
       - name: Set k8s ingress address
         run: |
@@ -76,7 +93,7 @@ jobs:
 
       - name: Deploy Z2JH
         run: |
-          yq -i -e '(.hub.image.name="${{ steps.k3s.outputs.registry-host }}/kubetemplatespawner") | (.hub.image.tag="latest")' config.yaml
+          yq -i -e '(.hub.image.name="${{ steps.registry.outputs.registry-host }}/kubetemplatespawner") | (.hub.image.tag="latest")' config.yaml
           git diff
 
           kubectl create namespace dev
