@@ -208,7 +208,7 @@ urllib3==2.4.0
     #   jupyterhub-kubespawner
     #   kubernetes-asyncio
     #   requests
-virtualenv==20.31.1
+virtualenv==20.32.0
     # via pre-commit
 webcolors==24.11.1
     # via jsonschema
