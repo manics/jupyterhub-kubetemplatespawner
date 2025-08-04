@@ -123,7 +123,7 @@ pycparser==2.22
     # via cffi
 pydantic==2.11.4
     # via jupyterhub
-pydantic-core==2.33.2
+pydantic-core==2.38.0
     # via pydantic
 pyproject-hooks==1.2.0
     # via build
