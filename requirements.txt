@@ -91,7 +91,7 @@ packaging==25.0
     #   jupyterhub
 pamela==1.2.0
     # via jupyterhub
-prometheus-client==0.21.1
+prometheus-client==0.22.1
     # via jupyterhub
 propcache==0.3.1
     # via
