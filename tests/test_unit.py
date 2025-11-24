@@ -36,16 +36,16 @@ def mock_spawner(username="user-1", servername="", namespace="default", **kwargs
     return k
 
 
-async def test_validate_name_valid():
+def test_validate_name_valid():
     _ = mock_spawner(servername="a.b-c")
 
 
-async def test_validate_name_invalid():
+def test_validate_name_invalid():
     with pytest.raises(TraitError):
         _ = mock_spawner(servername="🦆")
 
 
-async def test_template_namespace():
+def test_template_namespace():
     k = mock_spawner(
         "user-1@🐧",
         "- +",
@@ -105,7 +105,7 @@ async def test_manifests():
     ],
     ids=["pod", "service"],
 )
-async def test_get_connection(resource, expected):
+def test_get_connection(resource, expected):
     k = mock_spawner(port=54321)
     c = k.get_connection(ResourceInstance(None, resource))
     assert c == expected

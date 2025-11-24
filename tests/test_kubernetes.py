@@ -37,7 +37,7 @@ def config_map(
     return manifest
 
 
-async def test_manifest_summary():
+def test_manifest_summary():
     summary = manifest_summary(config_map())
     assert summary.api_version == "v1"
     assert summary.kind == "ConfigMap"
@@ -45,7 +45,7 @@ async def test_manifest_summary():
     assert summary.namespace == "my-namespace"
 
 
-async def test_not_found(k8s_dynclient):
+def test_not_found(k8s_dynclient):
     assert not_found(None)
     assert not_found(ResourceInstance(None, {"kind": "Status", "code": 12345}))
 
